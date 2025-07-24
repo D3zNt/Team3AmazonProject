@@ -1,0 +1,49 @@
+# YOLOv8 Project .gitignore
+
+# ===================
+# LARGE DATASETS ONLY
+# ===================
+# Exclude only the large COCO dataset (~20GB)
+datasets/coco/
+
+# Exclude large dataset downloads
+*.zip
+
+# ===================
+# PYTHON BASICS
+# ===================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ===================
+# ENVIRONMENTS
+# ===================
+.env
+.venv
+env/
+venv/
+ENV/
+
+# ===================
+# EDITORS
+# ===================
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# ===================
+# SYSTEM FILES
+# ===================
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+*~ 
