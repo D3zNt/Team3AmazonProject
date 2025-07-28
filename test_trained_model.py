@@ -97,7 +97,7 @@ def test_on_different_image(image_path):
     results_pretrained = pretrained_model(image_path)
     
     # Your trained model  
-    trained_model = YOLO('runs/detect/yolov8_coco8/weights/best.pt')
+    trained_model = YOLO('runs/custom/indoor_night2/weights/best.pt')
     results_trained = trained_model(image_path)
     
     # Save results

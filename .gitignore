@@ -5,6 +5,7 @@
 # ===================
 # Exclude only the large COCO dataset (~20GB)
 datasets/coco/
+datasets/custom/
 
 # Exclude large dataset downloads
 *.zip
