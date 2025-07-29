@@ -1,0 +1,12 @@
+[project]
+name = "team3amazonproject"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ipykernel>=6.30.0",
+    "ipynb>=0.5.1",
+    "pyyaml>=6.0.2",
+    "ultralytics>=8.3.170",
+]

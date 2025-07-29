@@ -1,0 +1,19 @@
+# Custom Indoor Night Object Detection Dataset Configuration
+# Place this file in the project root directory
+
+# Dataset root directory
+path: datasets/custom
+
+# Train and validation image directories (relative to 'path')
+train: images/train
+val: images/val
+
+# Number of classes (update this based on your specific objects)
+nc: 25
+
+# Class names (customize these for your indoor night objects)
+names: ['Bed', 'Cabinet', 'Carpet', 'Ceramic floor', 'Chair', 'Closet', 'Cupboard', 'Curtains', 'Dining Table', 'Door', 'Frame', 'Futec frame', 'Futech tiles', 'Gypsum Board', 'Lamp', 'Nightstand', 'Shelf', 'Sideboard', 'Sofa', 'TV stand', 'Table', 'Transparent Closet', 'Wall Panel', 'Window', 'Wooden floor']
+
+
+# Optional: Dataset information
+# download: # Add download script here if you have automated data collection 
