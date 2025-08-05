@@ -1,0 +1,10 @@
+model.train(
+    data=data_yaml_path,         # データセットのYAMLファイルへのパス
+    epochs=50,                   # 学習エポック数
+    imgsz=320,                   # 入力画像サイズ
+    batch=16,                    # バッチサイズ（GPUメモリによって調整）
+    name='furniture_yolov8n',    # 実行名
+    project='furniture_project', # 保存先ディレクトリ
+    exist_ok=True,                # 既存ディレクトリに上書き
+    device = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+)s
