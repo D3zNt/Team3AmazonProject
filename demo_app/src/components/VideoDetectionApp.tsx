@@ -6,6 +6,8 @@ import ModelUploader from './ModelUploader';
 import DetectionResults from './DetectionResults';
 import { DetectionResult } from '../types/detection';
 
+const FPS = 10;
+
 const VideoDetectionApp: React.FC = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [modelFile, setModelFile] = useState<File | null>(null);
@@ -13,18 +15,75 @@ const VideoDetectionApp: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  
+  const [canPlay, setCanPlay] = useState(true);
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleVideoUpload = useCallback((file: File) => {
     setVideoFile(file);
     setResults([]);
     setCurrentFrame(0);
+    setCanPlay(true);
   }, []);
 
   const handleModelUpload = useCallback((file: File) => {
     setModelFile(file);
   }, []);
+
+  // 10fpsごとにフレーム画像を抽出
+  const extractFrames = (videoFile: File, fps: number): Promise<{frameId: number, image: Blob}[]> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.src = URL.createObjectURL(videoFile);
+      video.preload = 'auto';
+      video.muted = true;
+      video.crossOrigin = 'anonymous';
+
+      const frames: {frameId: number, image: Blob}[] = [];
+      video.addEventListener('loadedmetadata', async () => {
+        const duration = video.duration;
+        const totalFrames = Math.floor(duration * fps);
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d')!;
+        let frameId = 0;
+
+        const captureFrame = (frame: number) => {
+          return new Promise<Blob>((resolveFrame) => {
+            video.currentTime = frame / fps;
+            video.onseeked = () => {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              canvas.toBlob((blob) => {
+                if (blob) resolveFrame(blob);
+              }, 'image/jpeg');
+            };
+          });
+        };
+
+        for (let frame = 0; frame < totalFrames; frame++) {
+          // eslint-disable-next-line no-await-in-loop
+          const blob = await captureFrame(frame);
+          frames.push({ frameId: frame, image: blob });
+        }
+        resolve(frames);
+      });
+    });
+  };
+
+  // 1フレーム画像ごとにバックエンドへ推論リクエスト
+  const detectFrame = async (image: Blob, modelFile: File, frameId: number) => {
+    const formData = new FormData();
+    formData.append('image', image, `frame${frameId}.jpg`);
+    formData.append('model', modelFile);
+    const response = await fetch('http://127.0.0.1:8000/api/yolov8/infer_image', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Detection failed');
+    const result = await response.json();
+    return { ...result, frameId };
+  };
 
   const processVideo = async () => {
     if (!videoFile || !modelFile) {
@@ -34,53 +93,26 @@ const VideoDetectionApp: React.FC = () => {
 
     setLoading(true);
     setResults([]);
+    setCanPlay(false);
 
-    const formData = new FormData();
-    formData.append('video', videoFile);
-    formData.append('model', modelFile);
+    // 10fpsでフレーム抽出
+    const frames = await extractFrames(videoFile, FPS);
 
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/yolov8/infer', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error('Failed to get detection results from backend');
+    const detectionResults: any[] = [];
+    for (const { frameId, image } of frames) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await detectFrame(image, modelFile, frameId);
+        detectionResults.push(result);
+        setResults([...detectionResults]); // 進捗表示
+      } catch (e) {
+        detectionResults.push({ frameId, detections: [] });
       }
-
-      // ストリームで受信
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (line.trim() === '') continue;
-          try {
-            const data = JSON.parse(line);
-            setResults(prev => [...prev, data]);
-          } catch (e) {
-            // パース失敗は無視
-          }
-        }
-      }
-      // 残りのバッファ
-      if (buffer.trim() !== '') {
-        try {
-          const data = JSON.parse(buffer);
-          setResults(prev => [...prev, data]);
-        } catch (e) {}
-      }
-    } catch (err) {
-      alert('Detection failed: ' + err);
-      setResults([]);
     }
 
+    setResults(detectionResults);
     setLoading(false);
+    setCanPlay(true);
   };
 
   const togglePlayPause = () => {
@@ -148,6 +180,8 @@ const VideoDetectionApp: React.FC = () => {
                 currentFrame={currentFrame}
                 onFrameChange={setCurrentFrame}
                 ref={videoRef}
+                disabled={!canPlay}
+                fps={FPS}
               />
               
               {/* Controls */}
@@ -155,6 +189,7 @@ const VideoDetectionApp: React.FC = () => {
                 <button
                   onClick={togglePlayPause}
                   className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full transition-colors duration-200"
+                  disabled={!canPlay}
                 >
                   {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
                 </button>
@@ -194,3 +229,10 @@ const VideoDetectionApp: React.FC = () => {
 };
 
 export default VideoDetectionApp;
+
+// Whammy型宣言
+declare global {
+  interface Window {
+    Whammy: any;
+  }
+}

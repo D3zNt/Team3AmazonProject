@@ -6,10 +6,12 @@ interface VideoPlayerProps {
   detectionResults: DetectionResult[];
   currentFrame: number;
   onFrameChange: (frame: number) => void;
+  disabled?: boolean;
+  fps: number;
 }
 
 const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
-  ({ videoFile, detectionResults, currentFrame, onFrameChange }, ref) => {
+  ({ videoFile, detectionResults, currentFrame, onFrameChange, disabled, fps }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -29,35 +31,25 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
     useEffect(() => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
       if (!video || !canvas) return;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const drawDetections = () => {
-        // Clear canvas
+      const drawDetections = (frameId: number) => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Get detection results for current frame
         const currentDetection = detectionResults.find(
-          result => Math.abs(result.frameNumber - currentFrame) < 15
+          result => result.frameId === frameId
         );
-
         if (currentDetection && currentDetection.detections.length > 0) {
-          currentDetection.detections.forEach((detection, index) => {
+          currentDetection.detections.forEach((detection: any, index: number) => {
             const { bbox, confidence, className } = detection;
-            
-            // Set bounding box colors
             const colors = ['#ef4444', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
             const color = colors[index % colors.length];
-            
-            // Draw bounding box
             ctx.strokeStyle = color;
             ctx.lineWidth = 3;
             ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
-            
-            // Draw label background
+
             const label = `${className} ${(confidence * 100).toFixed(1)}%`;
             ctx.fillStyle = color;
             ctx.font = '14px Arial';
@@ -68,8 +60,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
               textMetrics.width + 10,
               20
             );
-            
-            // Draw label text
             ctx.fillStyle = 'white';
             ctx.fillText(label, bbox.x + 5, bbox.y - 10);
           });
@@ -77,13 +67,12 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
       };
 
       const handleTimeUpdate = () => {
-        const frame = Math.floor(video.currentTime * 30); // Assuming 30fps
+        const frame = Math.floor(video.currentTime * fps);
         onFrameChange(frame);
-        drawDetections();
+        drawDetections(frame);
       };
 
       const handleLoadedMetadata = () => {
-        // Adjust canvas size to video size
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
       };
@@ -91,14 +80,14 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
       video.addEventListener('timeupdate', handleTimeUpdate);
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-      // detectionResultsが増えたら再描画
-      drawDetections();
+      // 初回描画
+      drawDetections(currentFrame);
 
       return () => {
         video.removeEventListener('timeupdate', handleTimeUpdate);
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       };
-    }, [detectionResults.length, currentFrame, onFrameChange]);
+    }, [detectionResults, currentFrame, onFrameChange, fps]);
 
     return (
       <div className="relative bg-black rounded-lg overflow-hidden">
@@ -107,6 +96,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
           className="w-full h-auto"
           controls
           preload="metadata"
+          disabled={disabled}
         />
         <canvas
           ref={canvasRef}
