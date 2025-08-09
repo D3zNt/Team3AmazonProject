@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -1038,6 +1038,11 @@ wheels = [
 ]
 
 [[package]]
+name = "segment-anything"
+version = "1.0"
+source = { git = "https://github.com/facebookresearch/segment-anything.git#dca509fe793f601edb92606367a655c15ac00fdf" }
+
+[[package]]
 name = "setuptools"
 version = "80.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1088,7 +1093,10 @@ source = { virtual = "." }
 dependencies = [
     { name = "ipykernel" },
     { name = "ipynb" },
+    { name = "matplotlib" },
+    { name = "opencv-python" },
     { name = "pyyaml" },
+    { name = "segment-anything" },
     { name = "ultralytics" },
 ]
 
@@ -1096,7 +1104,10 @@ dependencies = [
 requires-dist = [
     { name = "ipykernel", specifier = ">=6.30.0" },
     { name = "ipynb", specifier = ">=0.5.1" },
+    { name = "matplotlib", specifier = ">=3.7.0" },
+    { name = "opencv-python", specifier = ">=4.8.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "segment-anything", git = "https://github.com/facebookresearch/segment-anything.git" },
     { name = "ultralytics", specifier = ">=8.3.170" },
 ]
 
