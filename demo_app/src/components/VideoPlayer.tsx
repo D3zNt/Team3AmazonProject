@@ -91,11 +91,14 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
       video.addEventListener('timeupdate', handleTimeUpdate);
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
+      // detectionResultsが増えたら再描画
+      drawDetections();
+
       return () => {
         video.removeEventListener('timeupdate', handleTimeUpdate);
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       };
-    }, [detectionResults, currentFrame, onFrameChange]);
+    }, [detectionResults.length, currentFrame, onFrameChange]);
 
     return (
       <div className="relative bg-black rounded-lg overflow-hidden">

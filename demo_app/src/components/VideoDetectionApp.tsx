@@ -9,8 +9,8 @@ import { DetectionResult } from '../types/detection';
 const VideoDetectionApp: React.FC = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [modelFile, setModelFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [detectionResults, setDetectionResults] = useState<DetectionResult[]>([]);
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
@@ -18,7 +18,7 @@ const VideoDetectionApp: React.FC = () => {
 
   const handleVideoUpload = useCallback((file: File) => {
     setVideoFile(file);
-    setDetectionResults([]);
+    setResults([]);
     setCurrentFrame(0);
   }, []);
 
@@ -32,53 +32,55 @@ const VideoDetectionApp: React.FC = () => {
       return;
     }
 
-    setIsProcessing(true);
-    
-    // Mock detection results (can be replaced with actual YOLOv8 processing)
-    const mockResults: DetectionResult[] = [
-      {
-        frameNumber: 0,
-        timestamp: 0,
-        detections: [
-          {
-            bbox: { x: 100, y: 50, width: 150, height: 200 },
-            confidence: 0.85,
-            className: 'person',
-            classId: 0
-          },
-          {
-            bbox: { x: 300, y: 100, width: 120, height: 80 },
-            confidence: 0.92,
-            className: 'car',
-            classId: 2
-          }
-        ]
-      },
-      {
-        frameNumber: 30,
-        timestamp: 1.0,
-        detections: [
-          {
-            bbox: { x: 110, y: 55, width: 150, height: 200 },
-            confidence: 0.87,
-            className: 'person',
-            classId: 0
-          },
-          {
-            bbox: { x: 320, y: 105, width: 120, height: 80 },
-            confidence: 0.89,
-            className: 'car',
-            classId: 2
-          }
-        ]
-      }
-    ];
+    setLoading(true);
+    setResults([]);
 
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setDetectionResults(mockResults);
-    setIsProcessing(false);
+    const formData = new FormData();
+    formData.append('video', videoFile);
+    formData.append('model', modelFile);
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/yolov8/infer', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error('Failed to get detection results from backend');
+      }
+
+      // ストリームで受信
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          try {
+            const data = JSON.parse(line);
+            setResults(prev => [...prev, data]);
+          } catch (e) {
+            // パース失敗は無視
+          }
+        }
+      }
+      // 残りのバッファ
+      if (buffer.trim() !== '') {
+        try {
+          const data = JSON.parse(buffer);
+          setResults(prev => [...prev, data]);
+        } catch (e) {}
+      }
+    } catch (err) {
+      alert('Detection failed: ' + err);
+      setResults([]);
+    }
+
+    setLoading(false);
   };
 
   const togglePlayPause = () => {
@@ -119,10 +121,10 @@ const VideoDetectionApp: React.FC = () => {
           
           <button
             onClick={processVideo}
-            disabled={!videoFile || !modelFile || isProcessing}
+            disabled={!videoFile || !modelFile || loading}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
           >
-            {isProcessing ? (
+            {loading ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                 <span>Processing...</span>
@@ -142,7 +144,7 @@ const VideoDetectionApp: React.FC = () => {
             <div className="space-y-4">
               <VideoPlayer
                 videoFile={videoFile}
-                detectionResults={detectionResults}
+                detectionResults={results}
                 currentFrame={currentFrame}
                 onFrameChange={setCurrentFrame}
                 ref={videoRef}
@@ -164,7 +166,7 @@ const VideoDetectionApp: React.FC = () => {
                 </button>
                 <button
                   className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full transition-colors duration-200"
-                  disabled={detectionResults.length === 0}
+                  disabled={results.length === 0}
                 >
                   <Download className="h-6 w-6" />
                 </button>
@@ -182,9 +184,9 @@ const VideoDetectionApp: React.FC = () => {
       </div>
 
       {/* Detection Results */}
-      {detectionResults.length > 0 && (
+      {results.length > 0 && (
         <div className="mt-8">
-          <DetectionResults results={detectionResults} currentFrame={currentFrame} />
+          <DetectionResults results={results} currentFrame={currentFrame} />
         </div>
       )}
     </div>
